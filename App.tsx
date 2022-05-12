@@ -3,31 +3,45 @@ import { StyleSheet, Text, TouchableOpacity, View, Image, ActivityIndicator } fr
 import WebView from 'react-native-webview';
 import * as Contacts from 'expo-contacts';
 
+interface Notification { show: boolean; state: 'success' | 'error'; message: string };
+
 export default function App() {
   let webView: any;
   const [showWebView, setShowWebView] = useState<boolean>(false);
   const [showBottomTab, setShowBottomTab] = useState<boolean>(true);
   const [showHeader, setShowHeader] = useState<boolean>(true);
+  const [notification, setNotification] = useState<Notification>({ show: false, state: 'success', message: 'aaaaaaa' })
 
   const handleEvent = ({ nativeEvent }: any) => {
     const event = JSON.parse(nativeEvent.data)
-    setShowBottomTab(JSON.parse(event['show']));
-    setShowHeader(JSON.parse(event['show']));
+    setShowBottomTab(!!event['showTabs']);
+    setShowHeader(!!event['showTabs']);
+    if (event.notification) {
+      setNotification({ ...event['notification'], show: true })
+      setTimeout(() => setNotification({ ...notification, show: false }), 3000)
+    }
   };
 
   const sendContacts = async () => {
-    let contacts: Contacts.Contact[] = [];
+    let contacts;
     const { status } = await Contacts.requestPermissionsAsync();
     if (status === 'granted') {
       const { data } = await Contacts.getContactsAsync({ fields: [Contacts.Fields.PhoneNumbers] });
-      contacts = data;
+      contacts = data.map(e => ({
+        name: `${e.firstName} ${e.lastName || ''}`,
+        phone: e.phoneNumbers ? e.phoneNumbers[0].number : ''
+      }))
     }
-    webView.postMessage(JSON.stringify(contacts))
+    webView.postMessage(JSON.stringify({ storeId: 106119, language: 'mx', contacts }))
   };
 
   return (
     <View style={styles.container}>
       {showHeader && <Image source={require("./assets/Topbar.png")} />}
+
+      {notification.show && (
+        <Text style={{ ...styles.notification, ...styles[notification.state] }}>{notification.message}</Text>
+      )}
 
       {showWebView ? (
         <WebView
@@ -42,7 +56,7 @@ export default function App() {
         />
       ) : (
         <View style={styles.home}>
-          <Text>El ecommerce</Text>
+          <Text>ecommerce</Text>
         </View>
       )}
 
@@ -88,5 +102,34 @@ const styles = StyleSheet.create({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-  }
+  },
+  notification: {
+    flex: 1,
+    position: 'absolute',
+    height: 75,
+    top: 70,
+    width: 500,
+    backgroundColor: '#2B2845',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'white',
+    textAlign: 'center',
+    paddingTop: 25,
+    zIndex: 99999999
+  },
+  success: { backgroundColor: '#2B2845' },
+  error: { backgroundColor: 'red' }
 });
+
+
+// useEffect(() => {
+//   (window as any).ReactNativeWebView?.postMessage(JSON.stringify({ show: true }));
+//   return () => { (window as any).ReactNativeWebView?.postMessage(JSON.stringify({ show: false })) }
+// }, []);
+// useEffect(() => {
+//   document.addEventListener('message', (msg: any) => {
+//     const a = JSON.parse(msg.data)
+//     alert(JSON.stringify(a, null, 2))
+//   })
+// },[]);
